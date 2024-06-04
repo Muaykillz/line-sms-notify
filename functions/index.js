@@ -1,19 +1,95 @@
-/**
- * Import function triggers from their respective submodules:
- *
- * const {onCall} = require("firebase-functions/v2/https");
- * const {onDocumentWritten} = require("firebase-functions/v2/firestore");
- *
- * See a full list of supported triggers at https://firebase.google.com/docs/functions
- */
+const functions = require('firebase-functions');
+const axios = require('axios');
+const dotenv = require('dotenv');
+dotenv.config();
 
-const {onRequest} = require("firebase-functions/v2/https");
-const logger = require("firebase-functions/logger");
+// 📦 Import tools
+const { 
+    addSmsSchedule, 
+    addSmsQueue, 
+    getUnsentSchedulesOfDate, 
+    updateSmsIsSent, 
+    deleteSmsQueue, 
+    convertDateToDocId,
+    createAndSendSchedule } = require('./tools/sms-data-manger');
+const { sendSms } = require('./tools/sms-sender');
+const { isRegistrationMessage, getRegistrationData } = require('./tools/registration-handler'); // Import the registration handler
 
-// Create and deploy your first functions
-// https://firebase.google.com/docs/functions/get-started
+// 🔑 Load environment variables
+const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+const LINE_NOTIFY_TOKEN = process.env.LINE_NOTIFY_TOKEN;
 
-// exports.helloWorld = onRequest((request, response) => {
-//   logger.info("Hello logs!", {structuredData: true});
-//   response.send("Hello from Firebase!");
-// });
+// 📲 Main function to handle incoming requests
+exports.smsLineNotify = functions.https.onRequest(async (req, res) => {
+    const events = req.body.events;
+    console.log("Events:", events);
+    console.log("---------------")
+
+    for (const event of events) {
+        if (event.type === "message") {
+            const message = event.message.text;
+            
+            // 📨 for test auto send sms in firebase pubsub
+            if (message === "t") {
+                const today = new Date("2024-06-19");
+                const unsentSchedules = await getUnsentSchedulesOfDate(today);
+                const docId = Object.keys(unsentSchedules)[0];
+                console.log(`docId: ${docId}`);
+                const unsentSchedulesData = unsentSchedules[docId];
+
+                for (const [userId, schedule] of Object.entries(unsentSchedulesData)) {
+                    
+                    // 📤 Send SMS
+                    console.log(`Sending SMS to ${schedule.phone} with message: ${schedule.message}`);
+                    await sendSms(schedule.phone, schedule.message);
+
+                    // 🗑️ Delete SMS queue & update isSent status
+                    await deleteSmsQueue(docId, userId);
+                    await updateSmsIsSent(docId, userId, schedule.scheduleId, true);
+                }
+            }
+
+            // 📝 Handle registration message
+            if (isRegistrationMessage(message)) {
+                const { userId, phone, name } = getRegistrationData(message);
+                console.log(`Registration message detected: UserId: ${userId}, Phone: ${phone}, Name: ${name}`);
+
+                // 📅 Create and send schedule messages
+                await createAndSendSchedule(userId, name, phone, 0, "Welcome! Your registration is successful.");
+                await createAndSendSchedule(userId, name, phone, 15, "Welcome! Your registration is successful.");
+                await createAndSendSchedule(userId, name, phone, 30, "Welcome! Your registration is successful.");
+            }  
+        }
+    }
+
+    return res.end();
+});
+
+// ⏰ Create firebase schedule every day at 00:00:00
+exports.sendSmsLineNotify = functions.pubsub.schedule('every day 00:00:00').onRun(async (context) => {
+    try {
+        const today = new Date();
+        const unsentSchedules = await getUnsentSchedulesOfDate(today);
+
+        if (!unsentSchedules || Object.keys(unsentSchedules).length === 0) {
+            console.log('No unsent schedules found for today.');
+            return;
+        }
+
+        const docId = Object.keys(unsentSchedules)[0];
+        console.log(`docId: ${docId}`);
+        const unsentSchedulesData = unsentSchedules[docId];
+
+        for (const [userId, schedule] of Object.entries(unsentSchedulesData)) {
+            // 📤 Send SMS
+            console.log(`Sending SMS to ${schedule.phone} with message: ${schedule.message}`);
+            await sendSms(schedule.phone, schedule.message);
+
+            // 🗑️ Delete SMS queue & update isSent status
+            await deleteSmsQueue(docId, userId);
+            await updateSmsIsSent(docId, userId, schedule.scheduleId, true);
+        }
+    } catch (error) {
+        console.error('Error sending SMS:', error);
+    }
+});
