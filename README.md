@@ -36,7 +36,7 @@ This project enables the sending of SMS notifications via a LINE bot, providing 
 - **Create `messages.js` file:** Create a `messages.js` file in the `tools` directory with the following content:
   ```javascript
   module.exports = {
-    day0Message: "Hello world",
+    day0Message: "Your message here",
     // more ...
     };
   ```
