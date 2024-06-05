@@ -4,16 +4,15 @@ const dotenv = require('dotenv');
 dotenv.config();
 
 // 📦 Import tools
-const { 
-    addSmsSchedule, 
-    addSmsQueue, 
-    getUnsentSchedulesOfDate, 
-    updateSmsIsSent, 
-    deleteSmsQueue, 
-    convertDateToDocId,
-    createAndSendSchedule } = require('./tools/sms-data-manger');
+const {
+    getUnsentSchedulesOfDate,
+    updateSmsIsSent,
+    deleteSmsQueue,
+    createAndSendSchedule
+} = require('./tools/sms-data-manger');
 const { sendSms } = require('./tools/sms-sender');
-const { isRegistrationMessage, getRegistrationData } = require('./tools/registration-handler'); // Import the registration handler
+const { isRegistrationMessage, getRegistrationData } = require('./tools/registration-handler');
+const { day0Message, day15Message, day30Message } = require('./messages');
 
 // 🔑 Load environment variables
 const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN;
@@ -28,7 +27,7 @@ exports.smsLineNotify = functions.https.onRequest(async (req, res) => {
     for (const event of events) {
         if (event.type === "message") {
             const message = event.message.text;
-            
+
             // 📨 for test auto send sms in firebase pubsub
             if (message === "t") {
                 const today = new Date("2024-06-19");
@@ -38,7 +37,7 @@ exports.smsLineNotify = functions.https.onRequest(async (req, res) => {
                 const unsentSchedulesData = unsentSchedules[docId];
 
                 for (const [userId, schedule] of Object.entries(unsentSchedulesData)) {
-                    
+
                     // 📤 Send SMS
                     console.log(`Sending SMS to ${schedule.phone} with message: ${schedule.message}`);
                     await sendSms(schedule.phone, schedule.message);
@@ -54,11 +53,12 @@ exports.smsLineNotify = functions.https.onRequest(async (req, res) => {
                 const { userId, phone, name } = getRegistrationData(message);
                 console.log(`Registration message detected: UserId: ${userId}, Phone: ${phone}, Name: ${name}`);
 
+
                 // 📅 Create and send schedule messages
-                await createAndSendSchedule(userId, name, phone, 0, "Welcome! Your registration is successful.");
-                await createAndSendSchedule(userId, name, phone, 15, "Welcome! Your registration is successful.");
-                await createAndSendSchedule(userId, name, phone, 30, "Welcome! Your registration is successful.");
-            }  
+                await createAndSendSchedule(userId, name, phone, 0, day0Message);
+                await createAndSendSchedule(userId, name, phone, 15, day15Message);
+                await createAndSendSchedule(userId, name, phone, 30, day30Message);
+            }
         }
     }
 

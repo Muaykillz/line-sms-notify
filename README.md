@@ -29,11 +29,17 @@ This project enables the sending of SMS notifications via a LINE bot, providing 
 
 - **Set up environment variables:** Create a `.env` file with the following content:
   ```
-  LINE_BOT_TOKEN=your_line_bot_token
+  LINE_CHANNEL_ACCESS_TOKEN=your_line_bot_token
   SMS_API_KEY=your_sms_api_key
   ```
 
-- **Add recipients:** Update the `recipients.json` file with the desired phone numbers.
+- **Create `messages.js` file:** Create a `messages.js` file in the `tools` directory with the following content:
+  ```javascript
+  module.exports = {
+    day0Message: "Hello world",
+    // more ...
+    };
+  ```
 
 ## Usage 🚀
 
