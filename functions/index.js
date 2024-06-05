@@ -12,7 +12,7 @@ const {
 } = require('./tools/sms-data-manger');
 const { sendSms } = require('./tools/sms-sender');
 const { isRegistrationMessage, getRegistrationData } = require('./tools/registration-handler');
-const { day0Message, day15Message, day30Message } = require('./messages');
+const { day0Message, day15Message, day30Message } = require('./tools/message');
 
 // 🔑 Load environment variables
 const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN;
@@ -65,8 +65,8 @@ exports.smsLineNotify = functions.https.onRequest(async (req, res) => {
     return res.end();
 });
 
-// ⏰ Create firebase schedule every day at 00:00:00
-exports.sendSmsLineNotify = functions.pubsub.schedule('every day 00:00:00').onRun(async (context) => {
+// ⏰ Create firebase schedule every day at 00:00
+exports.sendSmsLineNotify = functions.pubsub.schedule('every day 00:00').onRun(async (context) => {
     try {
         const today = new Date();
         const unsentSchedules = await getUnsentSchedulesOfDate(today);
