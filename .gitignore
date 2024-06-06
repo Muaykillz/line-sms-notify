@@ -68,8 +68,6 @@ node_modules/
 # service account
 serviceAccountKey.json
 
-# config.js
+# .js 
 functions/tools/config.js
-
-# message.js
 functions/tools/message.js
